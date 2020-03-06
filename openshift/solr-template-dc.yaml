@@ -54,17 +54,16 @@ objects:
     resources:
       requests:
         storage: "${PERSISTENT_VOLUME_SIZE}"
-- kind: DeploymentConfig
+- kind: StatefulSet
   apiVersion: v1
   metadata:
     name: "${APPLICATION_NAME}"
     labels:
       app: "${APPLICATION_NAME}"
   spec:
-    replicas: 1
+    replicas: 3
     selector:
       app: "${APPLICATION_NAME}"
-      deploymentconfig: "${APPLICATION_NAME}"
     strategy:
       type: Rolling
       rollingParams:
@@ -78,7 +77,6 @@ objects:
       metadata:
         labels:
           app: "${APPLICATION_NAME}"
-          deploymentconfig: "${APPLICATION_NAME}"
       spec:
         containers:
         - name: "${APPLICATION_NAME}"
@@ -88,6 +86,23 @@ objects:
           terminationMessagePath: "/dev/termination-log"
           terminationMessagePolicy: File
           imagePullPolicy: Always
+          # https://issues.apache.org/jira/browse/SOLR-11126
+          readinessProbe:
+            httpGet:
+              # scheme: 'ternary "HTTPS" "HTTP""'
+              path: "/solr/admin/info/system"
+              port: "8983"
+            periodSeconds: ${LIVENESS_HEALTH_ENDPOINT}
+            initialDelaySeconds: "60"
+            timeoutSeconds: "10"
+          livenessProbe:
+            httpGet:
+              # scheme: 'ternary "HTTPS" "HTTP""'
+              path: "/solr/admin/info/system"
+              port: "8983"
+            periodSeconds: "${{PROBE_PERIOD}}"
+            initialDelaySeconds: "60"
+            timeoutSeconds: "10"
           volumeMounts:
           - name: "${APPLICATION_NAME}-data"
             mountPath: "${MOUNT_PATH}"
