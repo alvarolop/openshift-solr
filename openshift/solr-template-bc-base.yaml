@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: ${APPLICATION_NAME}
+  annotations:
+    description: Template for the application
+    tags: app,java,solr
+    iconClass: icon-rh-openjdk
+    openshift.io/provider-display-name: Red Hat, Inc.
+    openshift.io/support-url: https://access.redhat.com
+labels:
+  template: ${APPLICATION_NAME}
+  app: ${APPLICATION_NAME}
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    triggers:
+    - type: ConfigChange
+    runPolicy: Serial
+    source:
+      type: Git
+      git:
+        uri: "${GIT_REPOSITORY}"
+        ref: "${GIT_REF}"
+      contextDir: "${SOURCE_CONTEXT_DIR}"
+    strategy:
+      type: Docker
+    output:
+      to:
+        kind: ImageStreamTag
+        name: "${APPLICATION_NAME}:${OUTPUT_IMAGE_TAG}"
+parameters:
+- name: APPLICATION_NAME
+  description: "he name assigned to all of the resources defined in this template."
+  required: true
+  value: solr-base
+- name: GIT_REPOSITORY
+  description: "The URL to your GIT repo, don't use the default unless your just experimenting."
+  required: true
+  value: https://github.com/alvarolop/ocp-solr
+- name: GIT_REF
+  displayName: Git Reference
+  description: The git reference or branch.
+  required: false
+  value: master
+- name: SOURCE_CONTEXT_DIR
+  displayName: Source Context Directory
+  description: The source context directory.
+  required: false
+  value: ''
+- name: OUTPUT_IMAGE_TAG
+  displayName: Output Image Tag
+  description: The tag given to the built image.
+  required: false
+  value: latest
