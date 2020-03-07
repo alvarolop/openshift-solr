@@ -80,6 +80,12 @@ objects:
       spec:
         containers:
         - name: "${APPLICATION_NAME}"
+          # cat /etc/default/solr.in.sh
+          env:
+            - name: "SOLR_HOME"
+              value: "/opt/solr/server/solr"
+            - name: "ENABLE_REMOTE_JMX_OPTS"
+              value: "true"
           ports:
           - containerPort: 8983
             protocol: TCP
@@ -103,6 +109,13 @@ objects:
             periodSeconds: "${{PROBE_PERIOD}}"
             initialDelaySeconds: "60"
             timeoutSeconds: "10"
+          resources:
+            limits:
+              cpu: 2
+              memory: 4096Mi
+            requests:
+              cpu: 1
+              memory: 2048Mi
           volumeMounts:
           - name: "${APPLICATION_NAME}-data"
             mountPath: "${MOUNT_PATH}"
