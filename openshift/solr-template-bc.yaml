@@ -39,6 +39,9 @@ objects:
     strategy:
       type: Source
       sourceStrategy:
+        env:
+          - name: "SOLR_HOME"
+            value: "/opt/solr/server/solr"
         from:
           kind: ImageStreamTag
           namespace: "${SOURCE_IMAGE_NAMESPACE}"
