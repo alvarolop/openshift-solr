@@ -84,11 +84,11 @@ oc new-project $PROJECT_NAME --display-name="Solr" --description="Solr Test Proj
 
 [source,bash]
 ----
-oc process -f solr-template-bc-base.yaml -p APPLICATION_NAME=solr-base -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc-base.yaml -p APPLICATION_NAME=solr-base -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest | oc apply -n ${PROJECT_NAME} -f -
 
-oc process -f solr-template-bc.yaml -p APPLICATION_NAME=solr -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest -p SOURCE_IMAGE_NAME=solr-base -p SOURCE_IMAGE_TAG=latest -p SOURCE_IMAGE_NAMESPACE=${PROJECT_NAME} | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc.yaml -p APPLICATION_NAME=solr -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest -p SOURCE_IMAGE_NAME=solr-base -p SOURCE_IMAGE_TAG=latest -p SOURCE_IMAGE_NAMESPACE=${PROJECT_NAME} | oc apply -n ${PROJECT_NAME} -f -
 
-oc process -f solr-template-ss.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-ss.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
 ----
 
 
