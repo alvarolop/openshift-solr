@@ -82,8 +82,8 @@ objects:
         - name: "${APPLICATION_NAME}"
           # cat /etc/default/solr.in.sh
           env:
-            # - name: "SOLR_HOME"
-            #   value: "/opt/solr/server/solr"
+            - name: "SOLR_HOME"
+              value: "/opt/solr/server/solr"
             - name: "ENABLE_REMOTE_JMX_OPTS"
               value: "true"
           ports:
