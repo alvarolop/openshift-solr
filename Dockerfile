@@ -18,11 +18,14 @@ RUN chmod -R a+rx ${S2I_SCRIPTS_PATH}
 COPY ./solr/films/conf /tmp/solr-config/films
 
 # Give the SOLR directory to root group (not root user)
-# https://docs.openshift.org/latest/creating_images/guidelines.html#openshift-origin-specific-guidelines
-RUN chown -R 8993:0 /opt/solr \
-  && chmod -R g+rwX /opt/solr
+# https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
+RUN chown -R 8993:0 /tmp/solr-config \
+  && chmod -R g=u /tmp/solr-config
 
 RUN chown -R 8993:0 /opt/solr \
-  && chmod -R g+rwX /opt/docker-solr
+  && chmod -R g=u /opt/solr
+
+RUN chown -R 8993:0 /opt/solr \
+  && chmod -R g=u /opt/docker-solr
 
 USER 8983
