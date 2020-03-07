@@ -124,9 +124,7 @@ objects:
             mountPath: "${MOUNT_PATH}"
         restartPolicy: Always
         terminationGracePeriodSeconds: 30
-        securityContext:
-          fsGroup: 8983
-          runAsUser: 8983
+        securityContext: {}
         volumes:
         - name: "${APPLICATION_NAME}-data"
           persistentVolumeClaim:
