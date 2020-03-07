@@ -15,7 +15,7 @@ if [ -z "${SOLR_CONF_DIR}" ]; then
 fi
 
 echo "==========================================================="
-echo "Source Repo Files: ${SOURCE_FILE_DIR}"
+echo "Source Repo Files: ${SOURCE_FILE_DIR}/solr"
 echo "-----------------------------------------------------------"
 ls -al ${SOURCE_FILE_DIR}
 echo "==========================================================="
@@ -28,7 +28,7 @@ ls -al ${SOLR_CONF_DIR}
 echo "==========================================================="
 echo
 
-echo "Copying SOLR conf files from ${SOURCE_FILE_DIR}/. to ${SOLR_CONF_DIR} ..."
-cp -Rf ${SOURCE_FILE_DIR}/. ${SOLR_CONF_DIR}
+echo "Copying SOLR conf files from ${SOURCE_FILE_DIR}/solr/. to ${SOLR_CONF_DIR} ..."
+cp -R ${SOURCE_FILE_DIR}/solr/. ${SOLR_CONF_DIR}
 echo "Copied SOLR conf files."
 echo
