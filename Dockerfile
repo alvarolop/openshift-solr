@@ -13,20 +13,21 @@ LABEL io.k8s.description="Run SOLR search in OpenShift" \
 COPY ./s2i/bin/. ${S2I_SCRIPTS_PATH}
 RUN chmod -R a+rx ${S2I_SCRIPTS_PATH} 
 
-# If we need to add files as part of every SOLR conf, they'd go here
-# COPY ./solr-config/ /tmp/solr-config
-COPY ./solr/films/conf /tmp/solr-config/films
-
 # Give the SOLR directory to root group (not root user)
 # https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
-RUN chown -R 8993:0 /tmp/solr-config \
-  && chmod -R 777 /tmp/solr-config
 
-RUN chown -R 8993:0 /opt/solr \
-  && chmod -R 777 /opt/solr
+RUN chgrp -R 0 /tmp/solr-config \
+  && chmod -R g=u /tmp/solr-config
 
-RUN chown -R 8993:0 /opt/solr \
-  && chmod -R 777 /opt/docker-solr
-  # && chmod -R g=u /opt/docker-solr
+RUN chgrp -R 0 /opt/solr \
+  && chmod -R g=u /opt/solr
+
+RUN chgrp -R 0 /opt/solr \
+  && chmod -R g=u /opt/docker-solr
+
+# If we need to add files as part of every SOLR conf, they'd go here
+COPY ./solr/films/conf /tmp/solr-config/films \
+  && chgrp -R 0 /tmp/solr-config \
+  && chmod -R g=u /tmp/solr-config
 
 USER 8983
