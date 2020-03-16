@@ -15,10 +15,6 @@ RUN chmod -R a+rx ${S2I_SCRIPTS_PATH}
 
 # Give the SOLR directory to root group (not root user)
 # https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
-
-RUN chgrp -R 0 /tmp/solr-config \
-  && chmod -R g=u /tmp/solr-config
-
 RUN chgrp -R 0 /opt/solr \
   && chmod -R g=u /opt/solr
 
