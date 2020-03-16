@@ -26,7 +26,7 @@ objects:
       targetPort: 8983
     selector:
       app: "${APPLICATION_NAME}"
-      deploymentconfig: "${APPLICATION_NAME}"
+      statefulset: "${APPLICATION_NAME}"
     type: ClusterIP
     sessionAffinity: None
 - kind: Route
@@ -60,11 +60,13 @@ objects:
     name: "${APPLICATION_NAME}"
     labels:
       app: "${APPLICATION_NAME}"
+      statefulset: "${APPLICATION_NAME}"
   spec:
     replicas: 3
     selector:
       matchLabels:
         app: "${APPLICATION_NAME}"
+        statefulset: "${APPLICATION_NAME}"
     strategy:
       type: Rolling
       rollingParams:
