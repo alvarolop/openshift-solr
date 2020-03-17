@@ -17,3 +17,5 @@ LABEL io.k8s.description="Run Zookeeper in OpenShift" \
 # https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
 RUN chgrp -R 0 /conf \
   && chmod -R g=u /conf
+
+USER 10000
