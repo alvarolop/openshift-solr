@@ -1,0 +1,19 @@
+FROM zookeeper:3.5.7
+MAINTAINER  Alvaro Lopez "alvarolop.medina@gmail.com"
+
+USER root
+# ENV S2I_SCRIPTS_PATH=/usr/libexec/s2i
+
+LABEL io.k8s.description="Run Zookeeper in OpenShift" \
+      io.k8s.display-name="Zookeeper 3.5.7" \
+      io.openshift.expose-services="2181:tcp,2888:tcp,3888:tcp" \
+      io.openshift.tags="zookeeper,zookeeper.3.5.7" \
+      # io.openshift.s2i.scripts-url="image:///${S2I_SCRIPTS_PATH}"
+
+# COPY ./s2i/bin/. ${S2I_SCRIPTS_PATH}
+# RUN chmod -R a+rx ${S2I_SCRIPTS_PATH} 
+
+# Give the SOLR directory to root group (not root user)
+# https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
+RUN chgrp -R 0 /conf \
+  && chmod -R g=u /conf
