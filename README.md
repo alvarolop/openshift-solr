@@ -84,14 +84,32 @@ oc new-project $PROJECT_NAME --display-name="Solr" --description="Solr Test Proj
 
 [source,bash]
 ----
-oc process -f openshift/solr-template-bc-base.yaml -p APPLICATION_NAME=solr-base -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc-base.yaml | oc apply -n ${PROJECT_NAME} -f -
 
-oc process -f openshift/solr-template-bc.yaml -p APPLICATION_NAME=solr -p GIT_REPOSITORY=https://github.com/alvarolop/openshift-solr -p GIT_REF=master -p SOURCE_CONTEXT_DIR="" -p OUTPUT_IMAGE_TAG=latest -p SOURCE_IMAGE_NAME=solr-base -p SOURCE_IMAGE_TAG=latest -p SOURCE_IMAGE_NAMESPACE=${PROJECT_NAME} | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} -f -
 
 oc process -f openshift/solr-template-ss.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
 ----
 
 
+### 3. Index data
+
+[source,bash]
+----
+curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X POST -H 'Content-type:application/json' --data-binary '{
+    "add-field" : {
+        "name":"name",
+        "type":"text_general",
+        "multiValued":false,
+        "stored":true
+    },
+    "add-field" : {
+        "name":"initial_release_date",
+        "type":"pdate",
+        "stored":true
+    }
+  }'
+----
 
 
 ## Extra: Build the image manually
@@ -104,6 +122,37 @@ SCRIPT_DIR=$(dirname $0)
 docker build -t 'openshift-solr' -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}
 ----
  
+
+
+## External zookeeper ensemble
+
+
+
+### Generate Zookeeper custom image
+
+[source,bash]
+----
+oc process -f openshift/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
+----
+
+
+### Deploy application
+
+[source,bash]
+----
+<!-- oc import-image zookeeper:3.5.7 --from=zookeeper:3.5.7 -n $PROJECT_NAME --confirm -->
+oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_NAME
+----
+
+
+
+
+
+
+
+
+
+
 
 
 
