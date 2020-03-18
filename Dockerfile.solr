@@ -21,4 +21,6 @@ RUN chgrp -R 0 /opt/solr \
 RUN chgrp -R 0 /opt/solr \
   && chmod -R g=u /opt/docker-solr
 
+RUN chmod -R a=u /opt/solr/server/solr/configsets
+
 USER 8983
