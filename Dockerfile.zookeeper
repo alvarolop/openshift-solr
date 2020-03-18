@@ -1,5 +1,5 @@
 FROM zookeeper:3.5.7
-MAINTAINER  Alvaro Lopez "alvarolop.medina@gmail.com"
+MAINTAINER  Alvaro Lopez "alopezme@redhat.com"
 
 USER root
 

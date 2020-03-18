@@ -1,5 +1,5 @@
 FROM solr:8.4.1
-MAINTAINER  Alvaro Lopez "alvarolop.medina@gmail.com"
+MAINTAINER  Alvaro Lopez "alopezme@redhat.com"
 
 USER root
 ENV S2I_SCRIPTS_PATH=/usr/libexec/s2i
