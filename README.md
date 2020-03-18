@@ -47,7 +47,9 @@ Refer to the documentation in the script for details.
 If you find and issues, go ahead and write them up.  If you want to submit some code changes, please see the [CONTRIBUTING][3] docs.
 
 
-
+[1]: https://github.com/docker-solr/docker-solr
+[2]: https://store.docker.com/images/f4e3929d-d8bc-491e-860c-310d3f40fff2?tab=description
+[3]: ./CONTRIBUTING.md
 
 
 
@@ -153,12 +155,61 @@ oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_N
 
 
 
+## Useful commands and pods
+
+
+### nslookup pod
+Useful command to generate a pod to test connection
+
+[source,bash]
+----
+oc run -i --tty --image busybox dns-test --restart=Never --rm /bin/sh
+----
+
+### Check Zookeeper ensemble status
+
+[source,bash]
+----
+for i in {0..2} ; do echo "==>> Zookeeper ${i}"; oc exec zookeeper-${i}-0 zkServer.sh status; echo ""; done
+----
+
+
+### Testing Zookeeper ensemble with put and get
+
+Test 1
+[source,bash]
+----
+oc rsh zookeeper-0-0
+  zkCli.sh
+  create /hello world
+  get /hello
+  deleteall /hello
+----
+
+Test 2
+[source,bash]
+----
+oc rsh zookeeper-0-0
+  zkCli.sh
+    create /hello world
+    stat /hello
+    quit
+  exit
+oc rsh zookeeper-2-0
+  zkCli.sh
+    get /hello
+    stat /hello
+    deleteall /hello
+    stat /hello
+    quit
+  exit
+oc rsh zookeeper-0-0
+  zkCli.sh
+    get /hello
+    stat /hello
+    quit
+  exit
+----
 
 
 
-
-
-
-[1]: https://github.com/docker-solr/docker-solr
-[2]: https://store.docker.com/images/f4e3929d-d8bc-491e-860c-310d3f40fff2?tab=description
-[3]: ./CONTRIBUTING.md
