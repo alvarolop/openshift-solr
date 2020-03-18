@@ -47,7 +47,6 @@ objects:
     name: "${APPLICATION_NAME}"
     labels:
       app: "${APPLICATION_NAME}"
-      template: "${APPLICATION_NAME}-deployment-template"
   spec:
     accessModes:
     - ReadWriteOnce

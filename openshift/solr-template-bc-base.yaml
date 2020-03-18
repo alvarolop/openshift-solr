@@ -36,6 +36,8 @@ objects:
       contextDir: "${SOURCE_CONTEXT_DIR}"
     strategy:
       type: Docker
+      dockerStrategy:
+        dockerfilePath: Dockerfile.solr
     output:
       to:
         kind: ImageStreamTag
@@ -43,12 +45,12 @@ objects:
 parameters:
 - name: APPLICATION_NAME
   description: "he name assigned to all of the resources defined in this template."
-  required: true
+  required: false
   value: solr-base
 - name: GIT_REPOSITORY
   description: "The URL to your GIT repo, don't use the default unless your just experimenting."
-  required: true
-  value: https://github.com/alvarolop/ocp-solr
+  required: false
+  value: https://github.com/alvarolop/openshift-solr
 - name: GIT_REF
   displayName: Git Reference
   description: The git reference or branch.
