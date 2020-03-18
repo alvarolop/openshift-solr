@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # We aren't using a real S2I builder, so files will be in /tmp by default
-SOURCE_FILE_DIR=/tmp/src
+SOURCE_FILE_DIR=/tmp/build/inputs
 
 # Your configuration files need to be in a {corename}/conf directory.
 # The {corename}/conf structure ensures compatibility with the 
