@@ -53,17 +53,17 @@ objects:
 parameters:
 - name: APPLICATION_NAME
   description: "The name assigned to all of the resources defined in this template."
-  required: true
+  required: false
   value: solr
 - name: GIT_REPOSITORY
   displayName: Git Repo URL
   description: The URL to your GIT repo, don't use the default unless your just experimenting.
-  required: true
-  value: https://github.com/alvarolop/ocp-solr
+  required: false
+  value: https://github.com/alvarolop/openshift-solr
 - name: GIT_REF
   displayName: Git Reference
   description: The git reference or branch.
-  required: true
+  required: false
   value: master
 - name: SOURCE_CONTEXT_DIR
   displayName: Source Context Directory
@@ -72,21 +72,21 @@ parameters:
   value: solr
 - name: SOURCE_IMAGE_NAME
   displayName: Source Image Name
-  required: true
+  required: false
   description: The name of the source image.
   value: solr-base
 - name: SOURCE_IMAGE_TAG
   displayName: Source Image Tag
-  required: true
+  required: false
   description: The tag of the source image.
   value: latest
 - name: SOURCE_IMAGE_NAMESPACE
   displayName: Namespace
-  required: true
+  required: false
   description: The OpenShift namespace where the ImageStream resides.
   value: solr
 - name: OUTPUT_IMAGE_TAG
   displayName: Output Image Tag
   description: The tag given to the built image.
-  required: true
+  required: false
   value: latest
