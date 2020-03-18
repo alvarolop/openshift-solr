@@ -17,6 +17,11 @@ fi
 echo "==========================================================="
 echo "Source Repo Files: ${SOURCE_FILE_DIR}/solr"
 echo "-----------------------------------------------------------"
+echo ""
+ls -al /tmp
+echo ""
+ls -al /tmp/build
+echo ""
 ls -al ${SOURCE_FILE_DIR}
 echo "==========================================================="
 echo
