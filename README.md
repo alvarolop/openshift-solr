@@ -64,40 +64,34 @@ https://github.com/apache/lucene-solr/tree/master/solr/example/films
 
 ### 0. Set up variables
 
-[source,bash]
-----
+```bash
 export PROJECT_NAME=solr
-
-
-----
+```
 
 
 
 
 ### 1. Create OCP project
 
-[source,bash]
-----
+```bash
 oc new-project $PROJECT_NAME --display-name="Solr" --description="Solr Test Project"
-----
+```
 
 
 ### 2. Process OCP templates
 
-[source,bash]
-----
+```bash
 oc process -f openshift/solr-template-bc-base.yaml | oc apply -n ${PROJECT_NAME} -f -
 
 oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} -f -
 
 oc process -f openshift/solr-template-ss.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
-----
+```
 
 
 ### 3. Index data
 
-[source,bash]
-----
+```bash
 curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X POST -H 'Content-type:application/json' --data-binary '{
     "add-field" : {
         "name":"name",
@@ -111,18 +105,17 @@ curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X
         "stored":true
     }
   }'
-----
+```
 
 
 ## Extra: Build the image manually
 
-[source,bash]
-----
+```bash
 #!/bin/bash
 SCRIPT_DIR=$(dirname $0)
 
 docker build -t 'openshift-solr' -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}
-----
+```
  
 
 
@@ -132,19 +125,17 @@ docker build -t 'openshift-solr' -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}
 
 ### Generate Zookeeper custom image
 
-[source,bash]
-----
+```bash
 oc process -f openshift/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
-----
+```
 
 
 ### Deploy application
 
-[source,bash]
-----
+```bash
 <!-- oc import-image zookeeper:3.5.7 --from=zookeeper:3.5.7 -n $PROJECT_NAME --confirm -->
 oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_NAME
-----
+```
 
 
 
@@ -161,34 +152,30 @@ oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_N
 ### nslookup pod
 Useful command to generate a pod to test connection
 
-[source,bash]
-----
+```bash
 oc run -i --tty --image busybox dns-test --restart=Never --rm /bin/sh
-----
+```
 
 ### Check Zookeeper ensemble status
 
-[source,bash]
-----
+```bash
 for i in {0..2} ; do echo "==>> Zookeeper ${i}"; oc exec zookeeper-${i}-0 zkServer.sh status; echo ""; done
-----
+```
 
 
 ### Testing Zookeeper ensemble with put and get
 
 Test 1
-[source,bash]
-----
+```bash
 oc rsh zookeeper-0-0
   zkCli.sh
   create /hello world
   get /hello
   deleteall /hello
-----
+```
 
 Test 2
-[source,bash]
-----
+```bash
 oc rsh zookeeper-0-0
   zkCli.sh
     create /hello world
@@ -209,7 +196,7 @@ oc rsh zookeeper-0-0
     stat /hello
     quit
   exit
-----
+```
 
 
 
