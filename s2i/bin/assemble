@@ -17,11 +17,6 @@ fi
 echo "==========================================================="
 echo "Source Repo Files: ${SOURCE_FILE_DIR}/solr"
 echo "-----------------------------------------------------------"
-echo ""
-ls -al /tmp
-echo ""
-ls -al /tmp/src
-echo ""
 ls -al ${SOURCE_FILE_DIR}
 echo "==========================================================="
 echo
@@ -33,7 +28,7 @@ ls -al ${SOLR_CONF_DIR}
 echo "==========================================================="
 echo
 
-echo "Copying SOLR conf files from ${SOURCE_FILE_DIR}/solr/. to ${SOLR_CONF_DIR} ..."
-cp -R ${SOURCE_FILE_DIR}/solr/. ${SOLR_CONF_DIR}
+echo "Copying SOLR conf files from ${SOURCE_FILE_DIR}/solr/* to ${SOLR_CONF_DIR} ..."
+cp -R ${SOURCE_FILE_DIR}/solr/* ${SOLR_CONF_DIR}
 echo "Copied SOLR conf files."
 echo
