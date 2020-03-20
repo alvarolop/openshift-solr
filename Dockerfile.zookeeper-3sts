@@ -1,0 +1,16 @@
+FROM zookeeper:3.5.7
+MAINTAINER  Alvaro Lopez "alopezme@redhat.com"
+
+USER root
+
+LABEL io.k8s.description="Run Zookeeper in OpenShift" \
+      io.k8s.display-name="Zookeeper 3.5.7" \
+      io.openshift.expose-services="2181:tcp,2888:tcp,3888:tcp" \
+      io.openshift.tags="zookeeper,zookeeper.3.5.7"
+
+# Give the ZK directory to root group (not root user)
+# https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#images-create-guide-openshift_create-images
+RUN chgrp -R 0 /conf \
+  && chmod -R g=u /conf
+
+USER 10000
