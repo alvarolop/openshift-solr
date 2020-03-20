@@ -1,0 +1,306 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: ${APPLICATION_NAME}
+  annotations:
+    description: Template for the application
+    tags: app,java,zookeeper
+    iconClass: icon-rh-openjdk
+    openshift.io/provider-display-name: Red Hat, Inc.
+    openshift.io/support-url: https://access.redhat.com
+labels:
+  template: ${APPLICATION_NAME}
+  app: ${APPLICATION_NAME}
+objects:
+- kind: Service
+  apiVersion: v1
+  metadata:
+    annotations:
+      service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    name: "${APPLICATION_NAME}-server"
+  spec:
+    ports:
+      - port: 2888
+        name: server
+        protocol: TCP
+      - port: 3888
+        name: leader-election
+        protocol: TCP
+    selector:
+      statefulset: "${APPLICATION_NAME}"
+    clusterIP: None
+    sessionAffinity: None
+    publishNotReadyAddresses: true
+- kind: Service
+  apiVersion: v1
+  metadata:
+    name: "${APPLICATION_NAME}"
+  spec:
+    ports:
+      - port: 2181
+        name: client
+        protocol: TCP
+    selector:
+      statefulset: "${APPLICATION_NAME}"
+
+
+###########
+# STATEFUL SETS
+###########
+- kind: StatefulSet
+  apiVersion: apps/v1
+  metadata:
+    name: "${APPLICATION_NAME}"
+    labels:
+      statefulset: "${APPLICATION_NAME}"
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        statefulset: "${APPLICATION_NAME}"
+    template:
+      metadata:
+        labels:
+          statefulset: "${APPLICATION_NAME}"
+      spec:
+        containers:
+        - name: "${APPLICATION_NAME}"
+          image: "${IMAGE_NAME}:${IMAGE_TAG}"
+          command:
+            - /bin/bash
+            # - -xec
+            - /tmp/run.sh
+          env:
+            # https://hub.docker.com/_/zookeeper
+            # - name: "ZOO_MY_ID"
+            #   value: "0"
+            - name: "ZOO_STANDALONE_ENABLED"
+              value: "false"
+            - name: "ZOO_SERVERS"
+              value: "server.0=${APPLICATION_NAME}-server:2888:3888;2181 server.1=${APPLICATION_NAME}-server:2888:3888;2181 server.2=${APPLICATION_NAME}-server:2888:3888;2181"
+            # - name: "SERVER_JVMFLAGS"
+            #   value: ""
+          ports:
+          - containerPort: 2181
+            protocol: TCP
+          - containerPort: 2888
+            protocol: TCP
+          - containerPort: 3888
+            protocol: TCP
+          imagePullPolicy: Always
+          readinessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - "zkServer.sh status"
+            initialDelaySeconds: ${{INITIAL_DELAY_SECONDS}}
+            periodSeconds: 30
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - "zkServer.sh status"
+            initialDelaySeconds: ${{INITIAL_DELAY_SECONDS}}
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            limits:
+              cpu: "${{CPU_LIMIT}}"
+              memory: "${{MEMORY_LIMIT}}"
+            requests:
+              cpu: "${{CPU_REQUEST}}"
+              memory: "${{MEMORY_REQUEST}}"
+          volumeMounts:
+          - name: "${APPLICATION_NAME}-data"
+            mountPath: "${{MOUNT_PATH_DATA}}"
+            # subPath: "${APPLICATION_NAME}-0"
+          - name: "${APPLICATION_NAME}-datalog"
+            mountPath: "${{MOUNT_PATH_DATALOG}}"
+            # subPath: "${APPLICATION_NAME}-0"
+          - name: ${APPLICATION_NAME}
+            mountPath: /tmp
+            subPath: zu-run.sh
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 30
+        securityContext: {}
+        volumes:
+        - name: "${APPLICATION_NAME}-data"
+          persistentVolumeClaim:
+            claimName: "${APPLICATION_NAME}-data"
+        - name: "${APPLICATION_NAME}-datalog"
+          persistentVolumeClaim:
+            claimName: "${APPLICATION_NAME}-datalog"
+        - configMap:
+            name: ${APPLICATION_NAME}
+            mode: 0770
+          name: "${APPLICATION_NAME}-init-script"
+
+###########
+# PVCs
+###########
+- kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: "${APPLICATION_NAME}-data"
+  spec:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: "${{PERSISTENT_VOLUME_SIZE}}"
+- kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: "${APPLICATION_NAME}-datalog"
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: "${{PERSISTENT_VOLUME_SIZE}}"
+###########
+# ConfigMap
+###########
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: "${APPLICATION_NAME}-init-script"
+  data:
+    zk-run.sh: |
+      #!/bin/bash
+      set -a
+      ROOT=$(echo /apache-zookeeper-*)
+      ZK_USER=${ZK_USER:-"zookeeper"}
+      ZK_LOG_LEVEL=${ZK_LOG_LEVEL:-"INFO"}
+      ZK_DATA_DIR=${ZK_DATA_DIR:-"$ROOT/data"}
+      ZK_DATA_LOG_DIR=${ZK_DATA_LOG_DIR:-"$ROOT/data/log"}
+      ZK_CONF_DIR=${ZK_CONF_DIR:-"$ROOT/conf"}
+      ZK_CLIENT_PORT=${ZK_CLIENT_PORT:-2181}
+      ZK_SERVER_PORT=${ZK_SERVER_PORT:-2888}
+      ZK_ELECTION_PORT=${ZK_ELECTION_PORT:-3888}
+      ZK_TICK_TIME=${ZK_TICK_TIME:-2000}
+      ZK_INIT_LIMIT=${ZK_INIT_LIMIT:-10}
+      ZK_SYNC_LIMIT=${ZK_SYNC_LIMIT:-5}
+      ZK_HEAP_SIZE=${ZK_HEAP_SIZE:-2G}
+      ZK_MAX_CLIENT_CNXNS=${ZK_MAX_CLIENT_CNXNS:-60}
+      ZK_MIN_SESSION_TIMEOUT=${ZK_MIN_SESSION_TIMEOUT:- $((ZK_TICK_TIME*2))}
+      ZK_MAX_SESSION_TIMEOUT=${ZK_MAX_SESSION_TIMEOUT:- $((ZK_TICK_TIME*20))}
+      ZK_SNAP_RETAIN_COUNT=${ZK_SNAP_RETAIN_COUNT:-3}
+      ZK_PURGE_INTERVAL=${ZK_PURGE_INTERVAL:-0}
+      ID_FILE="$ZK_DATA_DIR/myid"
+      ZK_CONFIG_FILE="$ZK_CONF_DIR/zoo.cfg"
+      LOG4J_PROPERTIES="$ZK_CONF_DIR/log4j.properties"
+      HOST=$(hostname)
+      DOMAIN=`hostname -d`
+      JVMFLAGS="-Xmx$ZK_HEAP_SIZE -Xms$ZK_HEAP_SIZE"
+      APPJAR=$(echo $ROOT/*jar)
+      CLASSPATH="${ROOT}/lib/*:${APPJAR}:${ZK_CONF_DIR}:"
+      if [[ $HOST =~ (.*)-([0-9]+)$ ]]; then
+          NAME=${BASH_REMATCH[1]}
+          ORD=${BASH_REMATCH[2]}
+          MY_ID=$((ORD+1))
+      else
+          echo "Failed to extract ordinal from hostname $HOST"
+          exit 1
+      fi
+      mkdir -p $ZK_DATA_DIR
+      mkdir -p $ZK_DATA_LOG_DIR
+      echo $MY_ID >> $ID_FILE
+      echo "clientPort=$ZK_CLIENT_PORT" >> $ZK_CONFIG_FILE
+      echo "dataDir=$ZK_DATA_DIR" >> $ZK_CONFIG_FILE
+      echo "dataLogDir=$ZK_DATA_LOG_DIR" >> $ZK_CONFIG_FILE
+      echo "tickTime=$ZK_TICK_TIME" >> $ZK_CONFIG_FILE
+      echo "initLimit=$ZK_INIT_LIMIT" >> $ZK_CONFIG_FILE
+      echo "syncLimit=$ZK_SYNC_LIMIT" >> $ZK_CONFIG_FILE
+      echo "maxClientCnxns=$ZK_MAX_CLIENT_CNXNS" >> $ZK_CONFIG_FILE
+      echo "minSessionTimeout=$ZK_MIN_SESSION_TIMEOUT" >> $ZK_CONFIG_FILE
+      echo "maxSessionTimeout=$ZK_MAX_SESSION_TIMEOUT" >> $ZK_CONFIG_FILE
+      echo "autopurge.snapRetainCount=$ZK_SNAP_RETAIN_COUNT" >> $ZK_CONFIG_FILE
+      echo "autopurge.purgeInterval=$ZK_PURGE_INTERVAL" >> $ZK_CONFIG_FILE
+      echo "4lw.commands.whitelist=*" >> $ZK_CONFIG_FILE
+      for (( i=1; i<=$ZK_REPLICAS; i++ ))
+      do
+          echo "server.$i=$NAME-$((i-1)).$DOMAIN:$ZK_SERVER_PORT:$ZK_ELECTION_PORT" >> $ZK_CONFIG_FILE
+      done
+      rm -f $LOG4J_PROPERTIES
+      echo "zookeeper.root.logger=$ZK_LOG_LEVEL, CONSOLE" >> $LOG4J_PROPERTIES
+      echo "zookeeper.console.threshold=$ZK_LOG_LEVEL" >> $LOG4J_PROPERTIES
+      echo "zookeeper.log.threshold=$ZK_LOG_LEVEL" >> $LOG4J_PROPERTIES
+      echo "zookeeper.log.dir=$ZK_DATA_LOG_DIR" >> $LOG4J_PROPERTIES
+      echo "zookeeper.log.file=zookeeper.log" >> $LOG4J_PROPERTIES
+      echo "zookeeper.log.maxfilesize=256MB" >> $LOG4J_PROPERTIES
+      echo "zookeeper.log.maxbackupindex=10" >> $LOG4J_PROPERTIES
+      echo "zookeeper.tracelog.dir=$ZK_DATA_LOG_DIR" >> $LOG4J_PROPERTIES
+      echo "zookeeper.tracelog.file=zookeeper_trace.log" >> $LOG4J_PROPERTIES
+      echo "log4j.rootLogger=\${zookeeper.root.logger}" >> $LOG4J_PROPERTIES
+      echo "log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender" >> $LOG4J_PROPERTIES
+      echo "log4j.appender.CONSOLE.Threshold=\${zookeeper.console.threshold}" >> $LOG4J_PROPERTIES
+      echo "log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout" >> $LOG4J_PROPERTIES
+      echo "log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n" >> $LOG4J_PROPERTIES
+      if [ -n "$JMXDISABLE" ]
+      then
+          MAIN=org.apache.zookeeper.server.quorum.QuorumPeerMain
+      else
+          MAIN="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=$JMXPORT -Dcom.sun.management.jmxremote.authenticate=$JMXAUTH -Dcom.sun.management.jmxremote.ssl=$JMXSSL -Dzookeeper.jmx.log4j.disable=$JMXLOG4J org.apache.zookeeper.server.quorum.QuorumPeerMain"
+      fi
+      set -x
+      exec java -cp "$CLASSPATH" $JVMFLAGS $MAIN $ZK_CONFIG_FILE
+parameters:
+- name: APPLICATION_NAME
+  displayName: Name
+  description: The name of the application.
+  required: true
+  value: "zookeeper"
+- name: IMAGE_NAME
+  displayName: Image Name
+  required: false
+  description: The name of the original zookeeper image.
+  value: "zookeeper"
+- name: IMAGE_TAG
+  displayName: Environment TAG name
+  description: Tag of the solr image."
+  value: "3.5.7"
+  required: false
+- name: PERSISTENT_VOLUME_SIZE
+  displayName: Persistent Volume Size
+  description: The size of the persistent volume , e.g. 512Mi, 1Gi, 2Gi.
+  required: false
+  value: "10Gi"
+- name: INITIAL_DELAY_SECONDS
+  displayName: Initial Delay Seconds
+  description: Initial delay until the readiness and liveness probes start.
+  required: false
+  value: "30"
+- name: CPU_REQUEST
+  displayName: CPU Request
+  description: CPU request.
+  required: false
+  value: "0.5"
+- name: CPU_LIMIT
+  displayName: CPU Limit
+  description: CPU limit.
+  required: false
+  value: "4"
+- name: MEMORY_REQUEST
+  displayName: Memory Request
+  description: Memory request.
+  required: false
+  value: "2048Mi"
+- name: MEMORY_LIMIT
+  displayName: Memory Limit
+  description: Memory limit.
+  required: false
+  value: "4096Mi"
+- name: MOUNT_PATH_DATA
+  displayName: Mount Path
+  description: The path to mount the persistent volume.
+  value: /data
+  required: false
+- name: MOUNT_PATH_DATALOG
+  displayName: Mount Path
+  description: The path to mount the persistent volume.
+  value: /datalog
+  required: false
