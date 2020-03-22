@@ -116,12 +116,25 @@ docker build -t 'my-solr' -f ${SCRIPT_DIR}/Dockerfile.solr ${SCRIPT_DIR}
 To deploy the SolrCloud cluster, just follow these steps:
 
 ```bash
-oc process -f openshift/solr-template-bc-base.yaml | oc apply -n ${PROJECT_NAME} -f -
-oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} -f -
-oc process -f openshift/solr-template-sts.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc.yaml | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-sts.yaml -p APPLICATION_NAME=solr -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -n ${PROJECT_NAME} -f -
 ```
 
 ### Indexing data
+
+#### Solr cores
+
+
+
+#### Solr collection
+
+There are many ways of creating collections in docker-solr. Probably, the easiest one is using Solr API:
+
+```bash
+curl 'http://localhost:8983/solr/admin/collections?action=CREATE&name=gettingstarted3&numShards=1&collection.configName=_default'
+```
+If you want to use a custom config for your collection, you first need to upload it, and then refer to it by name when you create the collection. See the Ref guide on how to use the [ZooKeeper upload](https://lucene.apache.org/solr/guide/8_4/solr-control-script-reference.html#upload-a-configuration-set) or the [configset API](https://lucene.apache.org/solr/guide/8_4/configsets-api.html#configsets-create).
+
 
 ```bash
 curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X POST -H 'Content-type:application/json' --data-binary '{
@@ -145,8 +158,9 @@ curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X
 
 Here are some useful links to documentation and code examples:
 
-- [Readme Solr-docker](https://github.com/docker-solr/docker-solr/blob/master/README.md).
+- [How the image works](https://github.com/docker-solr/docker-solr/blob/master/README.md#how-the-image-works) (Readme of Solr-docker).
 - [FAQ Solr-docker](https://github.com/docker-solr/docker-solr/blob/master/Docker-FAQ.md).
+- [Docker-solr examples](https://github.com/docker-solr/docker-solr-examples).
 - [Films data set](https://github.com/apache/lucene-solr/tree/master/solr/example/films) for testing.
 
 
@@ -169,7 +183,7 @@ Here are some useful links to documentation and code examples:
 
 ## Extra: Useful tools
 
-### nslookup pod
+### nslookup container
 Command to generate a pod to test connections and dns resolutions:
 
 ```bash
