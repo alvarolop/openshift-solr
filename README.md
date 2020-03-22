@@ -1,55 +1,126 @@
 # Containerized SOLR On OpenShift
-Apache SOLR makes it easy to add search capability into your apps.  SOLR is a search server (backed by the Lucene serach library).  This repository provides a way for you to take advantage of that in OpenShift.
 
-## There are 2 distinct parts to this repo:
-   
-### (1) A Dockerfile
+[Apache Solr](https://lucene.apache.org/solr/) is a scalable and fault tolerant search server backer by the [Lucene search library](https://lucene.apache.org/index.html). It provides distributed indexing, replication and load-balanced querying, automated failover and recovery, centralized configuration and more. This repository provides a starting point to deploy Solr in HA on Openshift.
 
-Which overrides the [official Docker SOLR image][2] to tweak a few things in order to run SOLR efficiently on OpenShift.  
+An Apache Solr deployment consists on two steps:
+- Deployment of a Zookeeper ensemble.
+- Deployment of the Solr server.
 
-### (2) S2I scripts
+## Official container images
 
-Which allow you to easily push your project specific configuration files into the SOLR container.
+The intention of this project is to keep aligned as much as possible with the official Docker images for Solr and Zookeeper. For that reason, the new images build in this project will have the minimum changes possible. These are the base images and its version:
 
-## How to use all of this with your apps
-Sounds cool right?  It is.  And here's how you can use it.
+- [Apache Solr 8.4.1](https://hub.docker.com/_/solr/).
+- [Zookeeper 3.5.7](https://hub.docker.com/_/zookeeper).
 
-### Quick Start
-* Bring up a local OpenShift cluster.
-  * There are some [Chocolatey Scripts](https://github.com/WadeBarnes/dev-tools/tree/master/chocolatey) that make it very easy to do this on Windows.
-* Run the `buildLocalProject.sh` script in the `openshift` directory.
+NOTE: This project was only tested for the versions mentioned above. Other versions may require different configuration.
 
-This will create a **Solr** project and generate all of the build and deployment configurations needed for a working Solr instance complete with a core configured from source.
+## Preparation
 
-### If you just want to try running SOLR in OpenShift...
+You may need to execute the following commands prior to the creation of the Zookeeper and Solr components. First, define the name of the OCP project where all the components will run:
 
-Create the SOLR app from a Docker image
-`> oc new-app dudash/openshift-solr --name=solr-imageonly-demo`
+```bash
+export PROJECT_NAME=solr
+```
 
-Now you can access it via the route that was automatically exposed on port 8983 and whereever your OpenShift apps route (e.g. openshift-solr-myproject.127.0.0.1.nip.io).  Note: this won't autogenerate a SOLR core.
-
-### If you want to provide configuration in an automated way...
-* Create a repo
-* Create a folder called `solr/autocore/conf` and add SOLR config files for your desired SOLR configuration
-  (Refer to the sample in the project).
-* Wire up your OpenShift build configuration to point to the repo with configuration.  Refer to the script and template samples in the `openshift` directory.
-
-### The S2I process
-This repo doesn't require [the s2i tool](https://github.com/openshift/source-to-image) to build the image.  However, if you look into the Dockerfile, it does set some s2i LABELS in order for OpenShift to be able to use it as an s2i builder image.
-
-#### assemble script
-Refer to the documentation in the script for details.
-
-#### run script
-Refer to the documentation in the script for details.
-
-## Want to help?
-If you find and issues, go ahead and write them up.  If you want to submit some code changes, please see the [CONTRIBUTING][3] docs.
+After that, create the OCP project. Use the name and description that you prefer:
+```bash
+oc new-project $PROJECT_NAME --display-name="Solr" --description="Solr Project"
+```
 
 
-[1]: https://github.com/docker-solr/docker-solr
-[2]: https://store.docker.com/images/f4e3929d-d8bc-491e-860c-310d3f40fff2?tab=description
-[3]: ./CONTRIBUTING.md
+## Zookeeper ensemble
+
+[ZooKeeper](https://zookeeper.apache.org/doc/r3.5.7/zookeeperOver.html) is a distributed, open-source coordination service for distributed applications. It exposes a simple set of primitives that distributed applications can build upon to implement higher level services for synchronization, configuration maintenance, and groups and naming. Like the distributed processes it coordinates, ZooKeeper itself is intended to be replicated over a sets of hosts. This is called an ensemble.
+
+In order to deploy a simple Zookeeper ensemble, we will need, at least, several OCP objects: a Service, a headless Service, a StatefulSet, a Persistent Volume Claim and a ConfigMap. The structure followed for the Zookeeper OCP template is based on the [Zookeeper Helm chart](https://github.com/helm/charts/blob/master/incubator/zookeeper/README.md). 
+
+By default, OpenShift Container Platform runs containers using [an arbitrarily assigned user ID](https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#use-uid_create-images). This provides additional security against processes escaping the container due to a container engine vulnerability and thereby achieving escalated permissions on the host node. 
+
+In order to provide access for this arbitrary user to all the configuration folders, it is necessary to use a Dockerfile to modify the permissions of the `/conf/` folder and generate a new custom image. This process is managed by a BuildConfig and an ImageStream.
+
+### How to deploy a Zookeeper ensemble
+
+To deploy the zookeeper ensemble, just follow these steps:
+
+```bash
+oc process -f openshift/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
+oc process -f openshift/zookeeper-template-sts.yaml -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -f - -n $PROJECT_NAME
+```
+
+### Testing Zookeeper ensemble
+
+There are many ways of checking that the Zookeeper ensemble is formed properly. The basic method is to execute the command `zkServer.sh status` in all the pods. The output should show that the client port was found in all of them and that only one is the `leader` while the rest are in mode `follower`. Use the following command:
+
+```bash
+for i in {0..2} ; do echo "==>> Zookeeper ${i}"; oc exec zookeeper-${i} zkServer.sh status; echo ""; done
+```
+
+Another way to test zookeeper is by using it. The following commands create an entry and retrieve its value:
+
+```bash
+oc rsh zookeeper-0
+  zkCli.sh
+    create /hello world
+    get /hello
+    deleteall /hello
+```
+
+Finally, in order to test the ensemble functionality, an entry should be created in one pod and retrieved in a different one. The following code shows an example of this test:
+
+```bash
+oc rsh zookeeper-0
+  zkCli.sh
+    create /hello world
+    stat /hello
+    quit
+  exit
+oc rsh zookeeper-2
+  zkCli.sh
+    get /hello
+    stat /hello
+    deleteall /hello
+    stat /hello
+    quit
+  exit
+oc rsh zookeeper-0
+  zkCli.sh
+    get /hello
+    stat /hello
+    quit
+  exit
+```
+
+## SolrCloud cluster
+
+<!-- TODO -->
+//TODO
+
+
+https://github.com/docker-solr/docker-solr/tree/master/8.4
+
+
+
+### Testing SolrCloud custom image
+
+It is possible to build the SolrCloud locally for testing purposes (or to upload it manually to the OCP cluster) just by using the following command:
+
+```bash
+SCRIPT_DIR=$(dirname $0)
+docker build -t 'my-solr' -f ${SCRIPT_DIR}/Dockerfile.solr ${SCRIPT_DIR}
+```
+
+
+### How to deploy a SolrCloud cluster
+
+To deploy the SolrCloud cluster, just follow these steps:
+
+```bash
+oc process -f openshift/solr-template-bc-base.yaml | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} -f -
+oc process -f openshift/solr-template-sts.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
+```
+
 
 
 
@@ -58,35 +129,6 @@ If you find and issues, go ahead and write them up.  If you want to submit some 
 
 https://github.com/apache/lucene-solr/tree/master/solr/example/films
 
-
-## Create OCP resources
-
-
-### 0. Set up variables
-
-```bash
-export PROJECT_NAME=solr
-```
-
-
-
-
-### 1. Create OCP project
-
-```bash
-oc new-project $PROJECT_NAME --display-name="Solr" --description="Solr Test Project"
-```
-
-
-### 2. Process OCP templates
-
-```bash
-oc process -f openshift/solr-template-bc-base.yaml | oc apply -n ${PROJECT_NAME} -f -
-
-oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} -f -
-
-oc process -f openshift/solr-template-ss.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
-```
 
 
 ### 3. Index data
@@ -108,34 +150,6 @@ curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X
 ```
 
 
-## Extra: Build the image manually
-
-```bash
-#!/bin/bash
-SCRIPT_DIR=$(dirname $0)
-
-docker build -t 'openshift-solr' -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}
-```
- 
-
-
-## External zookeeper ensemble
-
-
-
-### Generate Zookeeper custom image
-
-```bash
-oc process -f openshift/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
-```
-
-
-### Deploy application
-
-```bash
-<!-- oc import-image zookeeper:3.5.7 --from=zookeeper:3.5.7 -n $PROJECT_NAME --confirm -->
-oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_NAME
-```
 
 
 
@@ -143,60 +157,11 @@ oc process -f openshift/zookeeper-template-ss.yaml | oc apply -f - -n $PROJECT_N
 
 
 
-
-
-
-## Useful commands and pods
-
+## Extra: Useful commands and pods
 
 ### nslookup pod
-Useful command to generate a pod to test connection
+Command to generate a pod to test connections and dns resolutions:
 
 ```bash
 oc run -i --tty --image busybox dns-test --restart=Never --rm /bin/sh
 ```
-
-### Check Zookeeper ensemble status
-
-```bash
-for i in {0..2} ; do echo "==>> Zookeeper ${i}"; oc exec zookeeper-${i}-0 zkServer.sh status; echo ""; done
-```
-
-
-### Testing Zookeeper ensemble with put and get
-
-Test 1
-```bash
-oc rsh zookeeper-0-0
-  zkCli.sh
-  create /hello world
-  get /hello
-  deleteall /hello
-```
-
-Test 2
-```bash
-oc rsh zookeeper-0-0
-  zkCli.sh
-    create /hello world
-    stat /hello
-    quit
-  exit
-oc rsh zookeeper-2-0
-  zkCli.sh
-    get /hello
-    stat /hello
-    deleteall /hello
-    stat /hello
-    quit
-  exit
-oc rsh zookeeper-0-0
-  zkCli.sh
-    get /hello
-    stat /hello
-    quit
-  exit
-```
-
-
-
