@@ -44,8 +44,8 @@ In order to provide access for this arbitrary user to all the configuration fold
 To deploy the zookeeper ensemble, just follow these steps:
 
 ```bash
-oc process -f openshift/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
-oc process -f openshift/zookeeper-template-sts.yaml -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -f - -n $PROJECT_NAME
+oc process -f zookeeper/zookeeper-template-bc.yaml | oc apply -f - -n $PROJECT_NAME
+oc process -f zookeeper/zookeeper-template-sts.yaml -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -f - -n $PROJECT_NAME
 ```
 
 ### Testing Zookeeper ensemble
@@ -116,8 +116,8 @@ docker build -t 'my-solr' -f ${SCRIPT_DIR}/Dockerfile.solr ${SCRIPT_DIR}
 To deploy the SolrCloud cluster, just follow these steps:
 
 ```bash
-oc process -f openshift/solr-template-bc.yaml | oc apply -n ${PROJECT_NAME} -f -
-oc process -f openshift/solr-template-sts.yaml -p APPLICATION_NAME=solr -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -n ${PROJECT_NAME} -f -
+oc process -f solr/solr-template-bc.yaml | oc apply -n ${PROJECT_NAME} -f -
+oc process -f solr/solr-template-sts.yaml -p APPLICATION_NAME=solr -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -n ${PROJECT_NAME} -f -
 ```
 
 ### Indexing data
