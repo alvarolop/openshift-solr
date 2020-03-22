@@ -6,7 +6,7 @@ USER root
 LABEL io.k8s.description="Run SOLR search in OpenShift" \
       io.k8s.display-name="SOLR 8.4.1" \
       io.openshift.expose-services="8983:http" \
-      io.openshift.tags="builder,solr,solr8.4.1" \
+      io.openshift.tags="solr,solr8.4.1"
 
 # Change Solr directories ownership to root group (not root user)
 # https://docs.openshift.com/container-platform/4.3/openshift_images/create-images.html#use-uid_create-images
