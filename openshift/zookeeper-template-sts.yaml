@@ -4,7 +4,7 @@ metadata:
   name: ${APPLICATION_NAME}
   annotations:
     description: Template for the application
-    tags: app,java,zookeeper
+    tags: app,java,${APPLICATION_NAME}
     iconClass: icon-rh-openjdk
     openshift.io/provider-display-name: Red Hat, Inc.
     openshift.io/support-url: https://access.redhat.com
@@ -27,9 +27,8 @@ objects:
         name: leader-election
         protocol: TCP
     selector:
-      statefulset: "${APPLICATION_NAME}"
+      app: ${APPLICATION_NAME}
     clusterIP: None
-    sessionAffinity: None
     publishNotReadyAddresses: true
 - kind: Service
   apiVersion: v1
@@ -41,45 +40,35 @@ objects:
         name: client
         protocol: TCP
     selector:
-      statefulset: "${APPLICATION_NAME}"
-
-
-###########
-# STATEFUL SETS
-###########
+      app: ${APPLICATION_NAME}
 - kind: StatefulSet
   apiVersion: apps/v1
   metadata:
     name: "${APPLICATION_NAME}"
-    labels:
-      statefulset: "${APPLICATION_NAME}"
   spec:
-    replicas: 3
+    replicas: "${{REPLICAS}}"
+    # https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id
+    serviceName: "${APPLICATION_NAME}-server"
+    # https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#parallel-pod-management
+    podManagementPolicy: Parallel
     selector:
       matchLabels:
-        statefulset: "${APPLICATION_NAME}"
+        app: ${APPLICATION_NAME}
     template:
       metadata:
         labels:
-          statefulset: "${APPLICATION_NAME}"
+          app: ${APPLICATION_NAME}
       spec:
         containers:
         - name: "${APPLICATION_NAME}"
-          image: "${IMAGE_NAME}:${IMAGE_TAG}"
+          image: "docker-registry.default.svc:5000/${IMAGE_NAMESPACE}/${APPLICATION_NAME}:${IMAGE_TAG}"
           command:
             - /bin/bash
-            # - -xec
-            - /tmp/run.sh
+            - -xec
+            - /tmp/zk-run.sh
           env:
-            # https://hub.docker.com/_/zookeeper
-            # - name: "ZOO_MY_ID"
-            #   value: "0"
-            - name: "ZOO_STANDALONE_ENABLED"
-              value: "false"
-            - name: "ZOO_SERVERS"
-              value: "server.0=${APPLICATION_NAME}-server:2888:3888;2181 server.1=${APPLICATION_NAME}-server:2888:3888;2181 server.2=${APPLICATION_NAME}-server:2888:3888;2181"
-            # - name: "SERVER_JVMFLAGS"
-            #   value: ""
+            - name: "ZK_REPLICAS"
+              value: "${{REPLICAS}}"
           ports:
           - containerPort: 2181
             protocol: TCP
@@ -87,7 +76,6 @@ objects:
             protocol: TCP
           - containerPort: 3888
             protocol: TCP
-          imagePullPolicy: Always
           readinessProbe:
             exec:
               command:
@@ -116,31 +104,18 @@ objects:
           volumeMounts:
           - name: "${APPLICATION_NAME}-data"
             mountPath: "${{MOUNT_PATH_DATA}}"
-            # subPath: "${APPLICATION_NAME}-0"
-          - name: "${APPLICATION_NAME}-datalog"
-            mountPath: "${{MOUNT_PATH_DATALOG}}"
-            # subPath: "${APPLICATION_NAME}-0"
-          - name: ${APPLICATION_NAME}
-            mountPath: /tmp
-            subPath: zu-run.sh
-        restartPolicy: Always
+          - name: "${APPLICATION_NAME}-cm"
+            mountPath: /tmp/zk-run.sh
+            subPath: zk-run.sh
         terminationGracePeriodSeconds: 30
-        securityContext: {}
         volumes:
         - name: "${APPLICATION_NAME}-data"
           persistentVolumeClaim:
             claimName: "${APPLICATION_NAME}-data"
-        - name: "${APPLICATION_NAME}-datalog"
-          persistentVolumeClaim:
-            claimName: "${APPLICATION_NAME}-datalog"
         - configMap:
-            name: ${APPLICATION_NAME}
-            mode: 0770
-          name: "${APPLICATION_NAME}-init-script"
-
-###########
-# PVCs
-###########
+            name: "${APPLICATION_NAME}-cm"
+            defaultMode: 0754
+          name: "${APPLICATION_NAME}-cm"
 - kind: PersistentVolumeClaim
   apiVersion: v1
   metadata:
@@ -151,23 +126,13 @@ objects:
     resources:
       requests:
         storage: "${{PERSISTENT_VOLUME_SIZE}}"
-- kind: PersistentVolumeClaim
-  apiVersion: v1
-  metadata:
-    name: "${APPLICATION_NAME}-datalog"
-  spec:
-    accessModes:
-    - ReadWriteOnce
-    resources:
-      requests:
-        storage: "${{PERSISTENT_VOLUME_SIZE}}"
 ###########
 # ConfigMap
 ###########
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: "${APPLICATION_NAME}-init-script"
+    name: "${APPLICATION_NAME}-cm"
   data:
     zk-run.sh: |
       #!/bin/bash
@@ -175,9 +140,9 @@ objects:
       ROOT=$(echo /apache-zookeeper-*)
       ZK_USER=${ZK_USER:-"zookeeper"}
       ZK_LOG_LEVEL=${ZK_LOG_LEVEL:-"INFO"}
-      ZK_DATA_DIR=${ZK_DATA_DIR:-"$ROOT/data"}
-      ZK_DATA_LOG_DIR=${ZK_DATA_LOG_DIR:-"$ROOT/data/log"}
-      ZK_CONF_DIR=${ZK_CONF_DIR:-"$ROOT/conf"}
+      ZK_DATA_DIR=${ZK_DATA_DIR:-"/data/${HOSTNAME}"}
+      ZK_DATA_LOG_DIR=${ZK_DATA_LOG_DIR:-"/data/${HOSTNAME}/log"}
+      ZK_CONF_DIR=${ZK_CONF_DIR:-"/conf"}
       ZK_CLIENT_PORT=${ZK_CLIENT_PORT:-2181}
       ZK_SERVER_PORT=${ZK_SERVER_PORT:-2888}
       ZK_ELECTION_PORT=${ZK_ELECTION_PORT:-3888}
@@ -208,6 +173,7 @@ objects:
       fi
       mkdir -p $ZK_DATA_DIR
       mkdir -p $ZK_DATA_LOG_DIR
+      rm $ID_FILE
       echo $MY_ID >> $ID_FILE
       echo "clientPort=$ZK_CLIENT_PORT" >> $ZK_CONFIG_FILE
       echo "dataDir=$ZK_DATA_DIR" >> $ZK_CONFIG_FILE
@@ -223,7 +189,8 @@ objects:
       echo "4lw.commands.whitelist=*" >> $ZK_CONFIG_FILE
       for (( i=1; i<=$ZK_REPLICAS; i++ ))
       do
-          echo "server.$i=$NAME-$((i-1)).$DOMAIN:$ZK_SERVER_PORT:$ZK_ELECTION_PORT" >> $ZK_CONFIG_FILE
+          # echo "server.$i=$NAME-$((i-1)):$ZK_SERVER_PORT:$ZK_ELECTION_PORT;$ZK_CLIENT_PORT" >> $ZK_CONFIG_FILE
+          echo "server.$i=$NAME-$((i-1)).$DOMAIN:$ZK_SERVER_PORT:$ZK_ELECTION_PORT;$ZK_CLIENT_PORT" >> $ZK_CONFIG_FILE
       done
       rm -f $LOG4J_PROPERTIES
       echo "zookeeper.root.logger=$ZK_LOG_LEVEL, CONSOLE" >> $LOG4J_PROPERTIES
@@ -240,25 +207,25 @@ objects:
       echo "log4j.appender.CONSOLE.Threshold=\${zookeeper.console.threshold}" >> $LOG4J_PROPERTIES
       echo "log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout" >> $LOG4J_PROPERTIES
       echo "log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n" >> $LOG4J_PROPERTIES
-      if [ -n "$JMXDISABLE" ]
-      then
-          MAIN=org.apache.zookeeper.server.quorum.QuorumPeerMain
-      else
-          MAIN="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=$JMXPORT -Dcom.sun.management.jmxremote.authenticate=$JMXAUTH -Dcom.sun.management.jmxremote.ssl=$JMXSSL -Dzookeeper.jmx.log4j.disable=$JMXLOG4J org.apache.zookeeper.server.quorum.QuorumPeerMain"
-      fi
+
       set -x
-      exec java -cp "$CLASSPATH" $JVMFLAGS $MAIN $ZK_CONFIG_FILE
+      exec java -cp "$CLASSPATH" $JVMFLAGS org.apache.zookeeper.server.quorum.QuorumPeerMain $ZK_CONFIG_FILE
 parameters:
 - name: APPLICATION_NAME
-  displayName: Name
+  displayName: Application name
   description: The name of the application.
   required: true
   value: "zookeeper"
-- name: IMAGE_NAME
+- name: REPLICAS
+  displayName: Number of replicas
+  description: Number of application replicas.
+  required: true
+  value: "3"
+- name: IMAGE_NAMESPACE
   displayName: Image Name
   required: false
   description: The name of the original zookeeper image.
-  value: "zookeeper"
+  value: "solr"
 - name: IMAGE_TAG
   displayName: Environment TAG name
   description: Tag of the solr image."
@@ -278,29 +245,24 @@ parameters:
   displayName: CPU Request
   description: CPU request.
   required: false
-  value: "0.5"
+  value: "100m"
 - name: CPU_LIMIT
   displayName: CPU Limit
   description: CPU limit.
   required: false
-  value: "4"
+  value: "500m"
 - name: MEMORY_REQUEST
   displayName: Memory Request
   description: Memory request.
   required: false
-  value: "2048Mi"
+  value: "1024Mi"
 - name: MEMORY_LIMIT
   displayName: Memory Limit
   description: Memory limit.
   required: false
-  value: "4096Mi"
+  value: "2048Mi"
 - name: MOUNT_PATH_DATA
   displayName: Mount Path
   description: The path to mount the persistent volume.
   value: /data
-  required: false
-- name: MOUNT_PATH_DATALOG
-  displayName: Mount Path
-  description: The path to mount the persistent volume.
-  value: /datalog
   required: false
