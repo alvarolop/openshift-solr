@@ -12,8 +12,8 @@ labels:
   template: ${APPLICATION_NAME}
   app: ${APPLICATION_NAME}
 objects:
-- kind: Service
-  apiVersion: v1
+- apiVersion: v1
+  kind: Service
   metadata:
     annotations:
       service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
@@ -30,8 +30,8 @@ objects:
       app: ${APPLICATION_NAME}
     clusterIP: None
     publishNotReadyAddresses: true
-- kind: Service
-  apiVersion: v1
+- apiVersion: v1
+  kind: Service
   metadata:
     name: "${APPLICATION_NAME}"
   spec:
@@ -41,8 +41,8 @@ objects:
         protocol: TCP
     selector:
       app: ${APPLICATION_NAME}
-- kind: StatefulSet
-  apiVersion: apps/v1
+- apiVersion: apps/v1
+  kind: StatefulSet
   metadata:
     name: "${APPLICATION_NAME}"
   spec:
@@ -68,7 +68,7 @@ objects:
             - /tmp/zk-run.sh
           env:
             - name: "ZK_REPLICAS"
-              value: "${{REPLICAS}}"
+              value: "${REPLICAS}"
           ports:
           - containerPort: 2181
             protocol: TCP
@@ -82,7 +82,7 @@ objects:
               - sh
               - -c
               - "zkServer.sh status"
-            initialDelaySeconds: ${{INITIAL_DELAY_SECONDS}}
+            initialDelaySeconds: "${{INITIAL_DELAY_SECONDS}}"
             periodSeconds: 30
             timeoutSeconds: 10
           livenessProbe:
@@ -91,7 +91,7 @@ objects:
               - sh
               - -c
               - "zkServer.sh status"
-            initialDelaySeconds: ${{INITIAL_DELAY_SECONDS}}
+            initialDelaySeconds: "${{INITIAL_DELAY_SECONDS}}"
             periodSeconds: 30
             timeoutSeconds: 10
           resources:
@@ -107,7 +107,9 @@ objects:
           - name: "${APPLICATION_NAME}-cm"
             mountPath: /tmp/zk-run.sh
             subPath: zk-run.sh
+        restartPolicy: Always
         terminationGracePeriodSeconds: 30
+        securityContext: {}
         volumes:
         - name: "${APPLICATION_NAME}-data"
           persistentVolumeClaim:
@@ -116,8 +118,8 @@ objects:
             name: "${APPLICATION_NAME}-cm"
             defaultMode: 0754
           name: "${APPLICATION_NAME}-cm"
-- kind: PersistentVolumeClaim
-  apiVersion: v1
+- apiVersion: v1
+  kind: PersistentVolumeClaim
   metadata:
     name: "${APPLICATION_NAME}-data"
   spec:
@@ -224,7 +226,7 @@ parameters:
 - name: IMAGE_NAMESPACE
   displayName: Image Name
   required: false
-  description: The name of the original zookeeper image.
+  description: The namespace of the OpenShift project containing the imagestream for the application.
   value: "solr"
 - name: IMAGE_TAG
   displayName: Environment TAG name
