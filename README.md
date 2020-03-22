@@ -121,17 +121,7 @@ oc process -f openshift/solr-template-bc-s2i.yaml | oc apply -n ${PROJECT_NAME} 
 oc process -f openshift/solr-template-sts.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
 ```
 
-
-
-
-
-## Alvaro Films
-
-https://github.com/apache/lucene-solr/tree/master/solr/example/films
-
-
-
-### 3. Index data
+### Indexing data
 
 ```bash
 curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X POST -H 'Content-type:application/json' --data-binary '{
@@ -151,13 +141,33 @@ curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X
 
 
 
+### Solr useful links and information
+
+Here are some useful links to documentation and code examples:
+
+- [Readme Solr-docker](https://github.com/docker-solr/docker-solr/blob/master/README.md).
+- [FAQ Solr-docker](https://github.com/docker-solr/docker-solr/blob/master/Docker-FAQ.md).
+- [Films data set](https://github.com/apache/lucene-solr/tree/master/solr/example/films) for testing.
 
 
 
 
 
 
-## Extra: Useful commands and pods
+
+
+
+
+## Limitations 
+
+- Zookeeper: Probably the Zookeeper `zk-run.sh` init script should be included in the Dockerfile instead of having it in the ConfigMap. This file should not change.
+
+- Zookeeper: Due to the custom `/conf/zoo.cfg` with the urls of each Zookeeper node, it is not possible to scale up or down the cluster without redeploying all the replicas.
+
+
+
+
+## Extra: Useful tools
 
 ### nslookup pod
 Command to generate a pod to test connections and dns resolutions:
