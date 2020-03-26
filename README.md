@@ -39,7 +39,7 @@ By default, OpenShift Container Platform runs containers using [an arbitrarily a
 
 In order to provide access for this arbitrary user to all the configuration folders, it is necessary to use a Dockerfile to modify the permissions of the `/conf/` folder and generate a new custom image. This process is managed by a BuildConfig and an ImageStream.
 
-### How to deploy a Zookeeper ensemble
+### Deploy a Zookeeper ensemble
 
 To deploy the zookeeper ensemble, just follow these steps:
 
@@ -93,65 +93,82 @@ oc rsh zookeeper-0
 
 ## SolrCloud cluster
 
-<!-- TODO -->
-//TODO
+In order to create a Solr cluster, we are going to use the official image of Solr provided by the Solr community in [DockerHub](https://hub.docker.com/_/solr/). As we are testing a simple HA scenario, we do not need to customize the Solr container image. If necessary, this repository provides a BuildConfig [here](solr/solr-template-bc.yaml).
 
 
-https://github.com/docker-solr/docker-solr/tree/master/8.4
+### Deploy a SolrCloud cluster
 
-
-
-### Testing SolrCloud custom image
-
-It is possible to build the SolrCloud locally for testing purposes (or to upload it manually to the OCP cluster) just by using the following command:
+To deploy the SolrCloud cluster, just apply the following OCP template:
 
 ```bash
-SCRIPT_DIR=$(dirname $0)
-docker build -t 'my-solr' -f ${SCRIPT_DIR}/Dockerfile.solr ${SCRIPT_DIR}
+oc process -f solr/solr-template-sts.yaml -p APPLICATION_NAME=solr | oc apply -n ${PROJECT_NAME} -f -
 ```
 
+### Using Solr
 
-### How to deploy a SolrCloud cluster
+In this section, we are going to upload some configuration files and use them to test that it works.
 
-To deploy the SolrCloud cluster, just follow these steps:
+In order to make this commands easier to use, please export your Solr url as a variable:
+```bash
+export SOLR_URL=<your_solr_url>
+```
+
+#### Upload the config files
+
+If you want to use a custom config for your collection, you first need to upload it, and then refer to it by name when you create the collection. There are two main options. The first option is using the [solr command](https://lucene.apache.org/solr/guide/8_4/solr-control-script-reference.html#upload-a-configuration-set) and the easiest one is using the [configset API](https://lucene.apache.org/solr/guide/8_4/configsets-api.html#configsets-create).
+
+In this example, we are going to use the [Upload operation](https://lucene.apache.org/solr/guide/8_4/configsets-api.html#configsets-upload) of the ConfigSets API.
 
 ```bash
-oc process -f solr/solr-template-bc.yaml | oc apply -n ${PROJECT_NAME} -f -
-oc process -f solr/solr-template-sts.yaml -p APPLICATION_NAME=solr -p IMAGE_NAMESPACE=$PROJECT_NAME | oc apply -n ${PROJECT_NAME} -f -
+export CONFIG_SET_NAME=alvaroConfigSet
+export CONFIG_SET_PATH=solr/examples/default_alvaro.zip
+
+curl -X POST --header "Content-Type:application/octet-stream" --data-binary @${CONFIG_SET_PATH} "http://${SOLR_URL}/solr/admin/configs?action=UPLOAD&name=${CONFIG_SET_NAME}"
 ```
 
-### Indexing data
+Check the ConfigSets uploaded:
+```bash
+curl "http://${SOLR_URL}/api/cluster/configs?omitHeader=true"
+```
 
-#### Solr cores
-
+You should see the following output:
+```json
+{
+  "configSets": [
+    "_default",
+    "alvaroConfigSet"
+  ]
+}
+```
 
 
 #### Solr collection
 
-There are many ways of creating collections in docker-solr. Probably, the easiest one is using Solr API:
+There are many ways of creating collections in docker-solr. The easiest one is using [Solr Collection API](https://lucene.apache.org/solr/guide/8_4/collection-management.html#collection-management):
 
 ```bash
-curl 'http://localhost:8983/solr/admin/collections?action=CREATE&name=gettingstarted3&numShards=1&collection.configName=_default'
+export COLLECTION_NAME=myCollection
+curl "http://${SOLR_URL}/solr/admin/collections?action=CREATE&name=${COLLECTION_NAME}&numShards=1&collection.configName=${CONFIG_SET_NAME}"
 ```
-If you want to use a custom config for your collection, you first need to upload it, and then refer to it by name when you create the collection. See the Ref guide on how to use the [ZooKeeper upload](https://lucene.apache.org/solr/guide/8_4/solr-control-script-reference.html#upload-a-configuration-set) or the [configset API](https://lucene.apache.org/solr/guide/8_4/configsets-api.html#configsets-create).
 
+Check your collection list:
 
 ```bash
-curl http://solr-solr.alvarolop.lab.upshift.rdu2.redhat.com/solr/films/schema -X POST -H 'Content-type:application/json' --data-binary '{
-    "add-field" : {
-        "name":"name",
-        "type":"text_general",
-        "multiValued":false,
-        "stored":true
-    },
-    "add-field" : {
-        "name":"initial_release_date",
-        "type":"pdate",
-        "stored":true
-    }
-  }'
+curl "http://${SOLR_URL}/solr/admin/collections?action=LIST"
 ```
 
+You should see the following output:
+```json
+{
+  "responseHeader": {
+    "status": 0,
+    "QTime": 0
+  },
+  "collections": [
+    "myCollection"
+  ]
+}
+```
 
 
 ### Solr useful links and information
@@ -166,18 +183,13 @@ Here are some useful links to documentation and code examples:
 
 
 
-
-
-
-
-
-
 ## Limitations 
 
 - Zookeeper: Probably the Zookeeper `zk-run.sh` init script should be included in the Dockerfile instead of having it in the ConfigMap. This file should not change.
 
-- Zookeeper: Due to the custom `/conf/zoo.cfg` with the urls of each Zookeeper node, it is not possible to scale up or down the cluster without redeploying all the replicas.
+- Zookeeper: Due to the custom `/conf/zoo.cfg` with the urls of each Zookeeper node, it is not possible to scale up or down the cluster without redeploying all the replicas. Could be possible to automate it setting it to "Redeploy" and using the Kubernetes API: https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/#without-using-a-proxy
 
+- Solr: Currently, Solr nodes register themselves in ZK using their IP. As IP is ephemeral in pods, you may want to use the hostname variable. To achieve that, you may use the following configuration: https://lucene.apache.org/solr/guide/8_4/taking-solr-to-production.html#solr-hostname
 
 
 
