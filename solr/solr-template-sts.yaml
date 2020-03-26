@@ -62,15 +62,16 @@ objects:
       spec:
         containers:
         - name: "${APPLICATION_NAME}"
-          image: "docker-registry.default.svc:5000/${IMAGE_NAMESPACE}/${APPLICATION_NAME}:${IMAGE_TAG}"
+          image: "${IMAGE_NAME}:${IMAGE_TAG}"
           env:
             # cat /etc/default/solr.in.sh 
-            # - name: "SOLR_HOME" ## Deprecated
-            #   value: "/opt/solr/server/solr"
-            # - name: "ENABLE_REMOTE_JMX_OPTS"
-            #   value: "true"
             - name: "ZK_HOST"
               value: "zookeeper-0.zookeeper-server:2181,zookeeper-1.zookeeper-server:2181,zookeeper-2.zookeeper-server:2181"
+            # Maybe solution for "Solr registered with IP". Should be tested.
+            # https://lucene.apache.org/solr/guide/8_4/taking-solr-to-production.html#solr-hostname
+            # - name: "SOLR_HOST"
+            #   valueFrom:
+            #     firldRef: metadata.name
           ports:
           - containerPort: 8983
             protocol: TCP
@@ -78,16 +79,14 @@ objects:
           # https://issues.apache.org/jira/browse/SOLR-11126
           readinessProbe:
             httpGet:
-              # scheme: 'ternary "HTTPS" "HTTP""'
-              path: /solr/admin/info/system
+              path: /solr/admin/info/system/health
               port: 8983
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10
           livenessProbe:
             httpGet:
-              # scheme: 'ternary "HTTPS" "HTTP""'
-              path: /solr/admin/info/system
+              path: /solr/admin/info/system/health
               port: 8983
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -99,29 +98,12 @@ objects:
             requests:
               cpu: "${{CPU_REQUEST}}"
               memory: "${{MEMORY_REQUEST}}"
-          volumeMounts:
-          - name: "${APPLICATION_NAME}-data"
-            mountPath: "${MOUNT_PATH}"
         restartPolicy: Always
         terminationGracePeriodSeconds: 30
         securityContext: {}
-        volumes:
-        - name: "${APPLICATION_NAME}-data"
-          persistentVolumeClaim:
-            claimName: "${APPLICATION_NAME}-data"
-- apiVersion: v1
-  kind: PersistentVolumeClaim
-  metadata:
-    name: "${APPLICATION_NAME}-data"
-  spec:
-    accessModes:
-    - ReadWriteOnce
-    resources:
-      requests:
-        storage: "${{PERSISTENT_VOLUME_SIZE}}"
 parameters:
 - name: APPLICATION_NAME
-  displayName: Name
+  displayName: Application name
   description: "The name of the application."
   required: true
   value: solr
@@ -130,21 +112,16 @@ parameters:
   description: Number of application replicas.
   required: true
   value: "3"
-- name: IMAGE_NAMESPACE
-  displayName: Image Namespace
-  required: false
-  description: The namespace of the OpenShift project containing the imagestream for the application.
+- name: IMAGE_NAME
+  displayName: Name of the image
+  description: "The name of the image."
+  required: true
   value: solr
 - name: IMAGE_TAG
   displayName: Environment TAG name
   description: Tag of the solr image
   value: "8.4.1"
   required: false
-- name: PERSISTENT_VOLUME_SIZE
-  displayName: Persistent Volume Size
-  description: The size of the persistent volume , e.g. 512Mi, 1Gi, 2Gi.
-  required: false
-  value: 1Gi
 - name: CPU_REQUEST
   displayName: CPU Request
   description: CPU request.
@@ -165,8 +142,3 @@ parameters:
   description: Memory limit.
   required: false
   value: "4096Mi"
-# - name: MOUNT_PATH # Deprecated
-#   displayName: Mount Path
-#   description: "The path to mount the persistent volume."
-#   value: "/opt/solr/server/solr/mycores"
-#   required: false
