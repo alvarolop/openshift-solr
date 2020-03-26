@@ -13,7 +13,7 @@ LABEL io.k8s.description="Run SOLR search in OpenShift" \
 RUN chgrp -R 0 /opt/solr \
   && chmod -R g=u /opt/solr
 
-RUN chgrp -R 0 /opt/solr \
+RUN chgrp -R 0/opt/docker-solr \
   && chmod -R g=u /opt/docker-solr
 
 USER 8983
