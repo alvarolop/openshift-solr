@@ -43,6 +43,8 @@ objects:
   spec:
     replicas: "${{REPLICAS}}"
     serviceName: "${APPLICATION_NAME}"
+    # To speed up the deployment: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#parallel-pod-management
+    podManagementPolicy: Parallel
     selector:
       matchLabels:
         app: "${APPLICATION_NAME}"
@@ -70,8 +72,7 @@ objects:
             # Maybe solution for "Solr registered with IP". Should be tested.
             # https://lucene.apache.org/solr/guide/8_4/taking-solr-to-production.html#solr-hostname
             # - name: "SOLR_HOST"
-            #   valueFrom:
-            #     firldRef: metadata.name
+            #   value: $$(HOSTNAME)
           ports:
           - containerPort: 8983
             protocol: TCP
